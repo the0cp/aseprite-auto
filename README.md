@@ -7,4 +7,6 @@ Builds aseprite using GitHub actions.
 
 [![Build and deploy Aseprite](https://github.com/the0cp/aseprite-auto/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/the0cp/aseprite-auto/actions/workflows/build.yml)
 
-Download: [https://github.com/the0cp/aseprite-auto/releases](https://github.com/the0cp/aseprite-auto/releases)
+Download zip: [https://github.com/the0cp/aseprite-auto/releases](https://github.com/the0cp/aseprite-auto/releases)
+
+Source: [https://github.com/aseprite/aseprite](https://github.com/aseprite/aseprite)
