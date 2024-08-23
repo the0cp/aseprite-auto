@@ -1,2 +1,10 @@
 # aseprite-auto
-Builds aseprite using GitHub actions
+Builds aseprite using GitHub actions. 
+
+- [x] Windows
+- [x] Linux
+- [x] macOS
+
+[![Build and deploy Aseprite](https://github.com/the0cp/aseprite-auto/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/the0cp/aseprite-auto/actions/workflows/build.yml)
+
+Download: [https://github.com/the0cp/aseprite-auto/releases](https://github.com/the0cp/aseprite-auto/releases)
