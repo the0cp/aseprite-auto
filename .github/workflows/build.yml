@@ -102,6 +102,7 @@ jobs:
 
       - name: Install Skia
         working-directory: aseprite
+        shell: bash
         run: |
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             choco install wget -y --no-progress
