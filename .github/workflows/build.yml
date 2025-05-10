@@ -58,10 +58,10 @@ jobs:
       - uses: actions/checkout@v2
       - uses: ncipollo/release-action@v1
         with:
-          tag:                 ${{ needs.fetch-aseprite-info.outputs.release-tag }}
-          body:                Aseprite-${{ needs.fetch-aseprite-info.outputs.release-tag }}
+          tag:     ${{ needs.fetch-aseprite-info.outputs.release-tag }}
+          body:    Aseprite-${{ needs.fetch-aseprite-info.outputs.release-tag }}
           skipIfReleaseExists: true
-          token:               ${{ secrets.GITHUB_TOKEN }}
+          token:   ${{ secrets.GITHUB_TOKEN }}
 
   build-aseprite:
     name: Build Aseprite
@@ -88,7 +88,7 @@ jobs:
             libx11-dev libxcursor-dev libxi-dev libgl1-mesa-dev libfontconfig1-dev
 
       - name: Install Dependencies (macOS)
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS-latest'
         run: brew install ninja p7zip jpeg-turbo wget
 
       - uses: actions/checkout@v4
@@ -98,11 +98,10 @@ jobs:
         run: |
           git clone --recurse-submodules -j8 \
             https://github.com/aseprite/aseprite \
-            --branch ${{ needs.fetch-aseprite-info.outputs.release-tag }} aseprite
+            --branch ${{ needs.create-release.outputs.release-tag }} aseprite
 
       - name: Install Skia
         working-directory: aseprite
-        shell: bash
         run: |
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             choco install wget -y --no-progress
@@ -110,7 +109,7 @@ jobs:
             unzip Skia-Windows-Release-x64.zip -d skia
           elif [[ "${{ runner.os }}" == "macOS" ]]; then
             wget https://github.com/aseprite/skia/releases/download/m124-08a5439a6b/Skia-macOS-Release-arm64.zip
-            unzip Skia-MacOS-Release-arm64.zip -d skia
+            unzip Skia-macOS-Release-arm64.zip -d skia
           else
             wget https://github.com/aseprite/skia/releases/download/m124-08a5439a6b/Skia-Linux-Release-x64.zip
             unzip Skia-Linux-Release-x64.zip -d skia
@@ -153,12 +152,7 @@ jobs:
       - name: Clean Up Build folder
         shell: bash
         working-directory: aseprite/build/bin
-        run: |
-          find . -mindepth 1 \
-            ! -name 'aseprite' \
-            ! -name 'aseprite.exe' \
-            ! -name 'data' -prune \
-            -exec rm -rf {} +
+        run: find . -mindepth 1 ! \( -name 'aseprite' -o -name 'aseprite.exe' -o -name 'data' -prune \) -exec rm -rf {} +
 
       - name: Make portable zip
         working-directory: aseprite/build/bin
@@ -166,14 +160,12 @@ jobs:
 
       - name: Create release
         working-directory: aseprite/build/bin
-        run: 7z -tzip a Aseprite-${{ needs.fetch-aseprite-info.outputs.release-tag }}-${{ matrix.os }}.zip *
+        run: 7z -tzip a Aseprite-${{ needs.create-release.outputs.release-tag }}-${{ runner.os }}.zip *
 
       - name: Upload release
-        uses: svenstaro/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: svenstaro/upload-release-action@v2
         with:
-          upload_url:     ${{ needs.fetch-aseprite-info.outputs.upload-url }}
-          asset_path:     aseprite/build/bin/Aseprite-${{ needs.fetch-aseprite-info.outputs.release-tag }}-${{ matrix.os }}.zip
-          asset_name:     Aseprite-${{ needs.fetch-aseprite-info.outputs.release-tag }}-${{ matrix.os }}.zip
-          asset_content_type: application/zip
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file:       aseprite/build/bin/Aseprite-${{ needs.create-release.outputs.release-tag }}-${{ runner.os }}.zip
+          asset_name: Aseprite-${{ needs.create-release.outputs.release-tag }}-${{ runner.os }}.zip
+          tag:        ${{ needs.create-release.outputs.release-tag }}
