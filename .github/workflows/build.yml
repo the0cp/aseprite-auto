@@ -150,15 +150,32 @@ jobs:
         working-directory: aseprite
         run: ninja -C build
 
-      - name: Download OpenSSL DLLs (Windows)
+      - name: Build OpenSSL (shared mode)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri https://slproweb.com/download/Win64OpenSSL-1_1_1w.exe -OutFile openssl.exe
-          Start-Process .\openssl.exe -ArgumentList '/silent', '/verysilent', '/dir=C:\OpenSSL-Win64' -Wait
-          Copy-Item 'C:\OpenSSL-Win64\bin\libcrypto-1_1-x64.dll' -Destination 'aseprite/build/bin'
-          Copy-Item 'C:\OpenSSL-Win64\bin\libssl-1_1-x64.dll' -Destination 'aseprite/build/bin'
+          Invoke-WebRequest -Uri https://www.openssl.org/source/openssl-1.1.1w.tar.gz -OutFile openssl.tar.gz
+          tar -xzf openssl.tar.gz
+          cd openssl-1.1.1w
+      
+          # Set up MSVC environment
+          $vcvars = "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
+          if (-Not (Test-Path $vcvars)) {
+            throw "Could not find vcvars64.bat"
+          }
+      
+          # Configure OpenSSL in shared mode
+          cmd /c "`"$vcvars`" && perl Configure VC-WIN64A shared && nmake && nmake install"
+      
+          # Find installed DLLs
+          $dlls = Get-ChildItem -Recurse -Filter *.dll | Where-Object { $_.Name -like "libcrypto*" -or $_.Name -like "libssl*" }
+      
+          # Copy DLLs into Aseprite bin folder
+          foreach ($dll in $dlls) {
+            Copy-Item $dll.FullName -Destination ../aseprite/build/bin -Force
+          }
 
+        
       - name: Clean Up Build folder
         shell: bash
         working-directory: aseprite/build/bin
