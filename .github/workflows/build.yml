@@ -225,6 +225,13 @@ jobs:
           </plist>
           EOF
 
+      - name: Remove quarantine flag (macOS Gatekeeper)
+        if: runner.os == 'macOS'
+        shell: bash
+        working-directory: aseprite/build/bin
+        run: xattr -rd com.apple.quarantine Aseprite.app
+
+
       - name: Create release
         working-directory: aseprite/build/bin
         run: 7z -tzip a Aseprite-${{ needs.create-release.outputs.release-tag }}-${{ runner.os }}.zip *
