@@ -149,37 +149,29 @@ jobs:
         shell: bash
         working-directory: aseprite
         run: ninja -C build
-
-      - name: Build OpenSSL (shared mode)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Invoke-WebRequest -Uri https://www.openssl.org/source/openssl-1.1.1w.tar.gz -OutFile openssl.tar.gz
-          tar -xzf openssl.tar.gz
-          cd openssl-1.1.1w
-      
-          # Set up MSVC environment
-          $vcvars = "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
-          if (-Not (Test-Path $vcvars)) {
-            throw "Could not find vcvars64.bat"
-          }
-      
-          # Configure OpenSSL in shared mode
-          cmd /c "`"$vcvars`" && perl Configure VC-WIN64A shared && nmake && nmake install"
-      
-          # Find installed DLLs
-          $dlls = Get-ChildItem -Recurse -Filter *.dll | Where-Object { $_.Name -like "libcrypto*" -or $_.Name -like "libssl*" }
-      
-          # Copy DLLs into Aseprite bin folder
-          foreach ($dll in $dlls) {
-            Copy-Item $dll.FullName -Destination ../aseprite/build/bin -Force
-          }
-
         
       - name: Clean Up Build folder
         shell: bash
         working-directory: aseprite/build/bin
         run: find . -mindepth 1 ! \( -name 'aseprite' -o -name 'aseprite.exe' -o -name 'data' -prune \) -exec rm -rf {} +
+
+      - name: Download and extract OpenSSL DLLs (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: aseprite/build/bin
+        run: |
+          # Download the zip from https://wiki.overbyte.eu/wiki/index.php/ICS_Download
+          # This binary provider comes from a suggested 3rd party list on the official opensll github
+          Invoke-WebRequest -Uri "https://wiki.overbyte.eu/arch/openssl-1.0.2u-win64.zip" -OutFile dlls.zip
+          
+          # Extract dlls into same path as the .exe
+          Expand-Archive -Path dlls.zip -DestinationPath temp_dlls
+          Copy-Item temp_dlls\libcrypto-1_1-x64.dll .
+          Copy-Item temp_dlls\libssl-1_1-x64.dll .
+
+          # Remove the ssl zip + temp folder from the final release
+          Remove-Item -Recurse -Force temp_dlls
+          Remove-Item dlls.zip
 
       - name: Make portable zip
         working-directory: aseprite/build/bin
