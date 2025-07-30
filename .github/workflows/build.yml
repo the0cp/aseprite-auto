@@ -234,18 +234,35 @@ jobs:
           mkdir AsepriteBundle
           mv Aseprite.app AsepriteBundle/
 
-          # Need this to overcome mac security for external unsigned apps
+          # Need to overcome mac security for external unsigned apps
           # https://github.com/electron-userland/electron-builder/issues/8191
-          cat << 'EOF' > AsepriteBundle/fix-damaged-app.sh
-          #!/bin/bash
-          echo "Removing quarantine from Aseprite.app..."
-          xattr -rd com.apple.quarantine Aseprite.app
-          echo "Done."
-          EOF
-          chmod +x AsepriteBundle/fix-damaged-app.sh
-
           cat << 'EOF' > AsepriteBundle/README.md
-          Run the fix-damaged-app.sh script to remove the quarantine from the Aseprite.app
+          # Fixing "damaged and can't be opened" on macOS
+
+          If you see an error saying Aseprite is “damaged and can’t be opened,” this is caused by macOS quarantine flags applied when downloading from the internet.
+          
+          Follow these steps to fix it:
+          
+          1. Open Terminal:
+             - Press Command + Spacebar
+             - Type "Terminal" and press Enter
+          
+          2. In the Terminal window, type the word `cd` followed by a space, then drag the folder containing this app into the Terminal window. This will insert the folder path.
+          
+             Example:
+             cd /Users/yourname/Downloads/AsepriteBundle
+          
+          3. Press Enter
+          
+          4. Copy and paste the following line
+             xattr -rd com.apple.quarantine Aseprite.app
+          
+          5. Press Enter
+          
+          After that, you should be able to double-click Aseprite.app and open it normally.
+          
+          You only need to do this once after downloading.
+
           EOF
       
           # Create the zip, preserving metadata
