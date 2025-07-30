@@ -230,11 +230,26 @@ jobs:
         shell: bash
         working-directory: aseprite/build/bin
         run: |
-          # Remove quarantine flags before zipping
+          # Create the folder to hold the .app and the helper script
+          mkdir AsepriteBundle
+          mv Aseprite.app AsepriteBundle/
+
+          # Need this to overcome mac security for external unsigned apps
+          # https://github.com/electron-userland/electron-builder/issues/8191
+          cat << 'EOF' > AsepriteBundle/fix-damaged-app.sh
+          #!/bin/bash
+          echo "Removing quarantine from Aseprite.app..."
           xattr -rd com.apple.quarantine Aseprite.app
+          echo "Done."
+          EOF
+          chmod +x AsepriteBundle/fix-damaged-app.sh
+
+          cat << 'EOF' > AsepriteBundle/README.md
+          Run the fix-damaged-app.sh script to remove the quarantine from the Aseprite.app
+          EOF
       
-          # Use ditto to preserve metadata and package as a proper .zip
-          ditto -c -k --sequesterRsrc --keepParent Aseprite.app Aseprite-${{ needs.create-release.outputs.release-tag }}-${{ runner.os }}.zip
+          # Create the zip, preserving metadata
+          ditto -c -k --sequesterRsrc --keepParent AsepriteBundle Aseprite-${{ needs.create-release.outputs.release-tag }}-${{ runner.os }}.zip
 
 
       - name: Create release (Linux + Windows)
