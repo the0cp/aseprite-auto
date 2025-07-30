@@ -173,6 +173,55 @@ jobs:
           Remove-Item -Recurse -Force temp_dlls
           Remove-Item dlls.zip
 
+      - name: Create macOS .app bundle
+        if: runner.os == 'macOS'
+        shell: bash
+        working-directory: aseprite/build/bin
+        run: |
+          mkdir -p Aseprite.app/Contents/MacOS
+          mkdir -p Aseprite.app/Contents/Resources
+      
+          # Move the built binary into the app bundle
+          mv aseprite Aseprite.app/Contents/MacOS/
+          mv data Aseprite.app/Contents/Resources/
+          # Don't know if ini is needed on mac
+          mv aseprite.ini Aseprite.app/Contents/Resources/
+
+          # Create app icns
+          mkdir -p Aseprite.iconset
+          for file in Aseprite.app/Contents/Resources/data/icons/ase*.png; do
+              num=$(basename "$file" | grep -E -o "\d+")
+              if (( num % 16 == 0 )); then
+                  cp "$file" "Aseprite.iconset/icon_${num}x${num}.png"
+              fi
+          done
+          iconutil -c icns Aseprite.iconset
+          rm -R Aseprite.iconset
+          mv Aseprite.icns Aseprite.app/Contents/Resources/
+      
+          # Create minimal Info.plist
+          cat > Aseprite.app/Contents/Info.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>aseprite</string>
+              <key>CFBundleIdentifier</key>
+              <string>org.aseprite.app</string>
+              <key>CFBundleName</key>
+              <string>Aseprite</string>
+              <key>CFBundleVersion</key>
+              <string>${{ needs.create-release.outputs.release-tag }}</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleIconFile</key>
+              <string>Aseprite.icns</string>
+          </dict>
+          </plist>
+          EOF
+
+
       - name: Make portable zip
         working-directory: aseprite/build/bin
         run: echo '# This file is here so Aseprite behaves as a portable program' > aseprite.ini
