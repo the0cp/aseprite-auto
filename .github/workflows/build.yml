@@ -225,14 +225,20 @@ jobs:
           </plist>
           EOF
 
-      - name: Remove quarantine flag (macOS Gatekeeper)
+      - name: Create release (macOS)
         if: runner.os == 'macOS'
         shell: bash
         working-directory: aseprite/build/bin
-        run: xattr -rd com.apple.quarantine Aseprite.app
+        run: |
+          # Remove quarantine flags before zipping
+          xattr -rd com.apple.quarantine Aseprite.app
+      
+          # Use ditto to preserve metadata and package as a proper .zip
+          ditto -c -k --sequesterRsrc --keepParent Aseprite.app Aseprite-${{ needs.create-release.outputs.release-tag }}-${{ runner.os }}.zip
 
 
-      - name: Create release
+      - name: Create release (Linux + Windows)
+        if: runner.os != 'macOS'
         working-directory: aseprite/build/bin
         run: 7z -tzip a Aseprite-${{ needs.create-release.outputs.release-tag }}-${{ runner.os }}.zip *
 
