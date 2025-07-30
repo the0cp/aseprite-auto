@@ -154,7 +154,11 @@ jobs:
         shell: bash
         working-directory: aseprite/build/bin
         run: find . -mindepth 1 ! \( -name 'aseprite' -o -name 'aseprite.exe' -o -name 'data' -prune \) -exec rm -rf {} +
-
+      
+      - name: Make portable zip
+        working-directory: aseprite/build/bin
+        run: echo '# This file is here so Aseprite behaves as a portable program' > aseprite.ini
+        
       - name: Download and extract OpenSSL DLLs (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -220,11 +224,6 @@ jobs:
           </dict>
           </plist>
           EOF
-
-
-      - name: Make portable zip
-        working-directory: aseprite/build/bin
-        run: echo '# This file is here so Aseprite behaves as a portable program' > aseprite.ini
 
       - name: Create release
         working-directory: aseprite/build/bin
