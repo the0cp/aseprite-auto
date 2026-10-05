@@ -56,6 +56,7 @@ jobs:
       release-tag:    ${{ needs.fetch-aseprite-info.outputs.release-tag }}
     steps:
       - uses: actions/checkout@v2
+
       - uses: ncipollo/release-action@v1
         with:
           tag:     ${{ needs.fetch-aseprite-info.outputs.release-tag }}
@@ -73,10 +74,12 @@ jobs:
     permissions:
       contents: write
     runs-on: ${{ matrix.os }}
+
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macOS-latest]
       fail-fast: false
+
     steps:
       - name: Install Dependencies (Linux)
         if: runner.os == 'Linux'
@@ -85,10 +88,11 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y \
             libpixman-1-dev libfreetype6-dev libharfbuzz-dev zlib1g-dev \
-            libx11-dev libxcursor-dev libxi-dev libgl1-mesa-dev libfontconfig1-dev
+            libx11-dev libxcursor-dev libxi-dev libxrandr-dev \
+            libgl1-mesa-dev libfontconfig1-dev
 
       - name: Install Dependencies (macOS)
-        if: runner.os == 'macOS-latest'
+        if: runner.os == 'macOS'
         run: brew install ninja p7zip jpeg-turbo wget
 
       - uses: actions/checkout@v4
@@ -108,9 +112,11 @@ jobs:
             choco install wget -y --no-progress
             wget https://github.com/aseprite/skia/releases/download/m124-08a5439a6b/Skia-Windows-Release-x64.zip
             unzip Skia-Windows-Release-x64.zip -d skia
+
           elif [[ "${{ runner.os }}" == "macOS" ]]; then
             wget https://github.com/aseprite/skia/releases/download/m124-08a5439a6b/Skia-macOS-Release-arm64.zip
             unzip Skia-macOS-Release-arm64.zip -d skia
+
           else
             wget https://github.com/aseprite/skia/releases/download/m124-08a5439a6b/Skia-Linux-Release-x64.zip
             unzip Skia-Linux-Release-x64.zip -d skia
@@ -149,130 +155,114 @@ jobs:
         shell: bash
         working-directory: aseprite
         run: ninja -C build
-        
+
+      # On macOS, CMake already generates build/bin/Aseprite.app
       - name: Clean Up Build folder
+        if: runner.os != 'macOS'
         shell: bash
         working-directory: aseprite/build/bin
-        run: find . -mindepth 1 ! \( -name 'aseprite' -o -name 'aseprite.exe' -o -name 'data' -prune \) -exec rm -rf {} +
-      
+        run: |
+          find . -mindepth 1 \
+            ! \( -name 'aseprite' -o -name 'aseprite.exe' -o -name 'data' -prune \) \
+            -exec rm -rf {} +
+
+      # aseprite.ini is only used by our portable Windows/Linux package.
+      # The native macOS application bundle does not need it here.
       - name: Make portable zip
+        if: runner.os != 'macOS'
         working-directory: aseprite/build/bin
-        run: echo '# This file is here so Aseprite behaves as a portable program' > aseprite.ini
-        
+        run: |
+          echo '# This file is here so Aseprite behaves as a portable program' > aseprite.ini
+
       - name: Download and extract OpenSSL DLLs (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         working-directory: aseprite/build/bin
         run: |
-          # Download the zip from https://wiki.overbyte.eu/wiki/index.php/ICS_Download
-          # This binary provider comes from a suggested 3rd party list on the official opensll github
-          Invoke-WebRequest -Uri "https://wiki.overbyte.eu/arch/openssl-1.1.1w-win64.zip" -OutFile dlls.zip
-          
-          # Extract dlls into same path as the .exe
+          # Download the zip from:
+          # https://wiki.overbyte.eu/wiki/index.php/ICS_Download
+          #
+          # This binary provider comes from a suggested 3rd party list
+          # on the official OpenSSL GitHub.
+
+          Invoke-WebRequest `
+            -Uri "https://wiki.overbyte.eu/arch/openssl-1.1.1w-win64.zip" `
+            -OutFile dlls.zip
+
           Expand-Archive -Path dlls.zip -DestinationPath temp_dlls
+
           Copy-Item temp_dlls\libcrypto-1_1-x64.dll .
           Copy-Item temp_dlls\libssl-1_1-x64.dll .
 
-          # Remove the ssl zip + temp folder from the final release
           Remove-Item -Recurse -Force temp_dlls
           Remove-Item dlls.zip
 
-      - name: Create macOS .app bundle
-        if: runner.os == 'macOS'
-        shell: bash
-        working-directory: aseprite/build/bin
-        run: |
-          mkdir -p Aseprite.app/Contents/MacOS
-          mkdir -p Aseprite.app/Contents/Resources
-      
-          # Move the built binary into the app bundle
-          mv aseprite Aseprite.app/Contents/MacOS/
-          mv data Aseprite.app/Contents/Resources/
-          # Don't know if ini is needed on mac
-          mv aseprite.ini Aseprite.app/Contents/Resources/
-
-          # Create app icns
-          mkdir -p Aseprite.iconset
-          for file in Aseprite.app/Contents/Resources/data/icons/ase*.png; do
-              num=$(basename "$file" | grep -E -o "\d+")
-              if (( num % 16 == 0 )); then
-                  cp "$file" "Aseprite.iconset/icon_${num}x${num}.png"
-              fi
-          done
-          iconutil -c icns Aseprite.iconset
-          rm -R Aseprite.iconset
-          mv Aseprite.icns Aseprite.app/Contents/Resources/
-      
-          # Create minimal Info.plist
-          cat > Aseprite.app/Contents/Info.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>CFBundleExecutable</key>
-              <string>aseprite</string>
-              <key>CFBundleIdentifier</key>
-              <string>org.aseprite.app</string>
-              <key>CFBundleName</key>
-              <string>Aseprite</string>
-              <key>CFBundleVersion</key>
-              <string>${{ needs.create-release.outputs.release-tag }}</string>
-              <key>CFBundlePackageType</key>
-              <string>APPL</string>
-              <key>CFBundleIconFile</key>
-              <string>Aseprite.icns</string>
-          </dict>
-          </plist>
-          EOF
-
+      # Aseprite's own CMake build already created Aseprite.app.
+      # We only package that app instead of rebuilding the bundle manually.
       - name: Create release (macOS)
         if: runner.os == 'macOS'
         shell: bash
         working-directory: aseprite/build/bin
         run: |
-          # Create the folder to hold the .app and the helper script
-          mkdir AsepriteBundle
+          # Verify that the native application bundle was generated.
+          test -d Aseprite.app
+          test -x Aseprite.app/Contents/MacOS/aseprite
+          test -d Aseprite.app/Contents/Resources/data
+
+          # Create a folder containing the app and the helper README.
+          mkdir -p AsepriteBundle
           mv Aseprite.app AsepriteBundle/
 
-          # Need to overcome mac security for external unsigned apps
-          # https://github.com/electron-userland/electron-builder/issues/8191
+          # GitHub-downloaded unsigned applications can receive
+          # the macOS quarantine attribute.
           cat << 'EOF' > AsepriteBundle/README.md
           # Fixing "damaged and can't be opened" on macOS
 
-          If you see an error saying Aseprite is “damaged and can’t be opened,” this is caused by macOS quarantine flags applied when downloading from the internet.
-          
-          Follow these steps to fix it:
-          
+          If you see an error saying Aseprite is “damaged and can’t be opened,”
+          this can be caused by macOS quarantine flags applied when downloading
+          applications from the internet.
+
+          Follow these steps:
+
           1. Open Terminal:
              - Press Command + Spacebar
              - Type "Terminal" and press Enter
-          
-          2. In the Terminal window, type the word `cd` followed by a space, then drag the folder containing this app into the Terminal window. This will insert the folder path.
-          
+
+          2. In the Terminal window, type `cd` followed by a space,
+             then drag the folder containing this app into the Terminal window.
+
              Example:
+
              cd /Users/yourname/Downloads/AsepriteBundle
-          
-          3. Press Enter
-          
-          4. Copy and paste the following line
+
+          3. Press Enter.
+
+          4. Run:
+
              xattr -rd com.apple.quarantine Aseprite.app
-          
-          5. Press Enter
-          
-          After that, you should be able to double-click Aseprite.app and open it normally.
-          
+
+          5. Press Enter.
+
+          After that, you should be able to double-click Aseprite.app
+          and open it normally.
+
           You only need to do this once after downloading.
-
           EOF
-      
-          # Create the zip, preserving metadata
-          ditto -c -k --sequesterRsrc --keepParent AsepriteBundle Aseprite-${{ needs.create-release.outputs.release-tag }}-${{ runner.os }}.zip
 
+          # Create zip while preserving macOS metadata.
+          ditto -c -k \
+            --sequesterRsrc \
+            --keepParent \
+            AsepriteBundle \
+            Aseprite-${{ needs.create-release.outputs.release-tag }}-${{ runner.os }}.zip
 
       - name: Create release (Linux + Windows)
         if: runner.os != 'macOS'
         working-directory: aseprite/build/bin
-        run: 7z -tzip a Aseprite-${{ needs.create-release.outputs.release-tag }}-${{ runner.os }}.zip *
+        run: |
+          7z -tzip a \
+            Aseprite-${{ needs.create-release.outputs.release-tag }}-${{ runner.os }}.zip \
+            *
 
       - name: Upload release
         uses: svenstaro/upload-release-action@v2
