@@ -1,9 +1,9 @@
 name: Build and deploy Aseprite
 
 on:
-  push:
-    branches:
-      - main
+  schedule:
+    - cron: '17 9 * * 1'
+      timezone: 'America/Los_Angeles'
   workflow_dispatch:
     inputs:
       run_fetch:
@@ -268,3 +268,4 @@ jobs:
           file:       aseprite/build/bin/Aseprite-${{ needs.create-release.outputs.release-tag }}-${{ runner.os }}.zip
           asset_name: Aseprite-${{ needs.create-release.outputs.release-tag }}-${{ runner.os }}.zip
           tag:        ${{ needs.create-release.outputs.release-tag }}
+          overwrite: true
