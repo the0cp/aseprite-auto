@@ -259,10 +259,7 @@ jobs:
       - name: Create release (Linux + Windows)
         if: runner.os != 'macOS'
         working-directory: aseprite/build/bin
-        run: |
-          7z -tzip a \
-            Aseprite-${{ needs.create-release.outputs.release-tag }}-${{ runner.os }}.zip \
-            *
+        run: 7z -tzip a Aseprite-${{ needs.create-release.outputs.release-tag }}-${{ runner.os }}.zip *
 
       - name: Upload release
         uses: svenstaro/upload-release-action@v2
